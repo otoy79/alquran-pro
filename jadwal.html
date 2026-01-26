@@ -4,27 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jadwal Sholat - Al-Qur'an Pro</title>
-     <script>
-    // SCRIPT ANTI-KEDIP (Mata Genit)
+      <script>
+    // CEK TEMA SECEPAT KILAT sebelum halaman digambar
     (function() {
-        const isDark = localStorage.getItem('userDark') === 'true';
-        const tipe = localStorage.getItem('tipeMushaf') || 'mushaf-1';
-        
-        // Cek batasan Mushaf 2 & 3 (gak boleh dark mode)
-        const bolehDark = isDark && tipe !== 'mushaf-2' && tipe !== 'mushaf-3';
-
-        if (bolehDark) {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            // 'color-scheme' ini sakti, bikin scrollbar & background bawaan lgsg item
-            document.documentElement.style.colorScheme = 'dark';
-            document.documentElement.style.backgroundColor = '#121212';
-        } else {
-            document.documentElement.setAttribute('data-theme', 'light');
-            document.documentElement.style.colorScheme = 'light';
-            document.documentElement.style.backgroundColor = '#ffffff';
-        }
+      const tema = localStorage.getItem('theme') || 'light';
+      if (tema === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        // Tambahkan style darurat biar body langsung item
+        document.documentElement.style.backgroundColor = '#121212'; 
+      }
     })();
-</script>
+  </script>
     <link rel="stylesheet" href="css/style.css">
     <style>
         .container-jadwal { padding: 20px; }
@@ -173,7 +163,6 @@ input:checked + .slider:before { transform: translateX(23px); }
    // 1. Taruh Variabel Global di paling atas script
         let kotaAktif = localStorage.getItem('userKota') || 'Jakarta';
         let suaraAktif = false;
-        let wakeLock = null;
         let adzanSudahBunyi = false; 
         
     function aktifkanSuara() {
@@ -356,7 +345,7 @@ input:checked + .slider:before { transform: translateX(23px); }
 
             // Tambahkan LOGIKA ADZAN di sini (sebelum penutup selisih > 08 detik)
            if (jam === 00 && menit === 00 && detik === 00) {
-    if (suaraAktif && !adzanSudahBunyi && sholatNext.nama !== 'Imsak') {
+    if (suaraAktif && !adzanSudahBunyi && sholatNext.nama !== 'Imsaak') {
         adzanPlayer.play();
         adzanSudahBunyi = true; 
         
@@ -411,30 +400,18 @@ function simpanPengaturanAdzan() {
 // Fungsi Pancingan (Wajib ada klik user)
    function pancingAudio() {
     const adzanPlayer = document.getElementById('audioAdzan');
-    
-    // 1. Langsung eksekusi PLAY tanpa ba-bi-bu
     adzanPlayer.play().then(() => {
-        // Kalau berhasil play, baru kita atur sisanya
         adzanPlayer.pause();
         adzanPlayer.currentTime = 0;
         suaraAktif = true;
-        
         document.getElementById('modalAudio').style.display = 'none';
         console.log("Audio Adzan Ready, Bossku!");
-
-        // 2. Kunci Layar (Wake Lock) taruh belakangan, jangan ganggu audio
-        if ('wakeLock' in navigator) {
-            navigator.wakeLock.request('screen').then((lock) => {
-                wakeLock = lock;
-                console.log("Layar dikunci! 🛡️");
-            }).catch(err => console.log("WakeLock gagal, tapi audio aman."));
-        }
     }).catch(e => {
-        console.error(e);
-        alert("Gagal pancing audio! Cek volume HP atau koneksi internet, Bossku!");
+        alert("Waduh, gagal pancing audio. Pastikan HP tidak dalam mode hening ya!");
+        tutupModal();
     });
-  }
-        
+}
+ 
    function simpanPengaturanAdzan() {
     const isChecked = document.getElementById('checkAdzan').checked;
     if (isChecked) {
@@ -455,8 +432,6 @@ window.addEventListener('load', () => {
         document.getElementById('modalAudio').style.display = 'flex';
     }
 });
-
-   
     </script>
 </body>
 </html>
