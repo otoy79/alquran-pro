@@ -186,14 +186,26 @@
 
    <script src="js/script.js"></script>
     <script>
-        // 1. Fungsi Sinkronisasi Tema (Ikuti Mushaf)
         function sinkronTema() {
-            const tipe = localStorage.getItem('tipeMushaf') || 'mushaf-1';
-            const isDark = localStorage.getItem('userDark') === 'true';
-            
-            document.body.className = tipe;
-            if (isDark) document.body.classList.add('dark-mode');
-        }
+    // 1. Ambil status Dark Mode (Sesuaikan dengan key yang dipakai di quran.html)
+    // Jika di quran.html pakai 'theme', maka di sini harus 'theme'
+    const temaSekarang = localStorage.getItem('theme') || 'light'; 
+    const tipeMushaf = localStorage.getItem('tipeMushaf') || 'mushaf-1';
+
+    // 2. Terapkan Tipe Mushaf
+    document.body.className = tipeMushaf;
+
+    // 3. Terapkan Dark Mode
+    if (temaSekarang === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        document.body.classList.add('dark-mode');
+        document.documentElement.style.backgroundColor = '#121212';
+    } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        document.body.classList.remove('dark-mode');
+        document.documentElement.style.backgroundColor = '#ffffff';
+    }
+}
 
         // 2. Cek Bookmark
         function cekBookmark() {
