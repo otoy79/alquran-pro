@@ -106,8 +106,8 @@
         GPS    📍 Jadwal Sholat Otomatis
         </div>
        </div>
-
-    <div class="sholat-container" style="display:none">
+  
+      <div class="sholat-container">
         <div class="sholat-box">Imsak<b id="s-imsak" style="color:#e67e22">--:--</b></div>
         <div class="sholat-box">Subuh<b id="s-subuh">--:--</b></div>
         <div class="sholat-box">Dzuhur<b id="s-dzuhur">--:--</b></div>
@@ -116,34 +116,7 @@
         <div class="sholat-box">Isya`<b id="s-isya">--:--</b></div>
     </div>
 
-      <div class="sholat-container">
-        <div class="waktu-item" style="flex:1;">
-                <span style="font-size:11px; opacity:0.8; display:block;">Imsak</span>
-                <b id="imsak-val" style="font-size:13px;">--:--</b>
-            </div>
-            <div class="waktu-item" style="flex:1;">
-                <span style="font-size:11px; opacity:0.8; display:block;">Subuh</span>
-                <b id="shubuh-val" style="font-size:13px;">--:--</b>
-            </div>
-            <div class="waktu-item" style="flex:1;">
-                <span style="font-size:11px; opacity:0.8; display:block;">Dzuhur</span>
-                <b id="dhuhr-val" style="font-size:13px;">--:--</b>
-            </div>
-            <div class="waktu-item" style="flex:1;">
-                <span style="font-size:11px; opacity:0.8; display:block;">Ashar</span>
-                <b id="asr-val" style="font-size:13px;">--:--</b>
-            </div>
-            <div class="waktu-item" style="flex:1;">
-                <span style="font-size:11px; opacity:0.8; display:block;">Maghrib</span>
-                <b id="maghrib-val" style="font-size:13px;">--:--</b>
-            </div>
-            <div class="waktu-item" style="flex:1;">
-                <span style="font-size:11px; opacity:0.8; display:block;">Isya</span>
-                <b id="isha-val" style="font-size:13px;">--:--</b>
-            </div>
-        </div>
-   
-
+     
    <div id="resume-home" class="resume-card-home" onclick="bukaTerakhir()">
     <span style="font-size:13px; opacity:0.9;">📌 Terakhir Dibaca:</span>
     <span id="resume-info-home" style="font-weight:bold; margin-top:5px; font-size:14px;">--</span>
@@ -187,22 +160,24 @@
    <script src="js/script.js"></script>
     <script>
         function sinkronTema() {
-    // 1. Ambil status Dark Mode (Sesuaikan dengan key yang dipakai di quran.html)
-    // Jika di quran.html pakai 'theme', maka di sini harus 'theme'
-    const temaSekarang = localStorage.getItem('theme') || 'light'; 
-    const tipeMushaf = localStorage.getItem('tipeMushaf') || 'mushaf-1';
+    // 1. Ambil data tipe mushaf
+    const tipe = localStorage.getItem('tipeMushaf') || 'mushaf-1';
+    
+    // 2. Ambil data dark mode (Kita cek apakah isinya string 'true' atau boolean true)
+    const isDark = localStorage.getItem('userDark') === 'true' || localStorage.getItem('userDark') === true;
 
-    // 2. Terapkan Tipe Mushaf
-    document.body.className = tipeMushaf;
+    // 3. Terapkan Tipe Mushaf ke Class Body
+    document.body.className = tipe;
 
-    // 3. Terapkan Dark Mode
-    if (temaSekarang === 'dark') {
-        document.documentElement.setAttribute('data-theme', 'dark');
+    // 4. Logika Dark Mode (Sesuai batasan Mushaf 2 & 3)
+    if (isDark && tipe !== 'mushaf-2' && tipe !== 'mushaf-3') {
         document.body.classList.add('dark-mode');
-        document.documentElement.style.backgroundColor = '#121212';
+        document.documentElement.setAttribute('data-theme', 'dark');
+        // Warna background darurat biar gak kedip putih
+        document.documentElement.style.backgroundColor = '#121212'; 
     } else {
-        document.documentElement.setAttribute('data-theme', 'light');
         document.body.classList.remove('dark-mode');
+        document.documentElement.setAttribute('data-theme', 'light');
         document.documentElement.style.backgroundColor = '#ffffff';
     }
 }
@@ -325,8 +300,8 @@ async function muatTanggalHeader() {
     } catch (e) { }
 }
 
-// Panggil di window.onload
-// Gunakan pageshow supaya saat klik "BACK" dari halaman lain, tema tetap update
+
+    // Pakai pageshow biar pas di-BACK langsung berubah warnanya
 window.addEventListener('pageshow', () => {
     sinkronTema();
     cekBookmark();
