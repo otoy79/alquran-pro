@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jadwal Sholat - Al-Qur'an Pro</title>
+      <script>
+    // CEK TEMA SECEPAT KILAT sebelum halaman digambar
+    (function() {
+      const tema = localStorage.getItem('theme') || 'light';
+      if (tema === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        // Tambahkan style darurat biar body langsung item
+        document.documentElement.style.backgroundColor = '#121212'; 
+      }
+    })();
+  </script>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .container-jadwal { padding: 20px; }
+        .info-lokasi {
+            background: var(--card-bg); padding: 20px; border-radius: 20px;
+            text-align: center; margin-bottom: 20px; border: 1px solid var(--border); 
+        }
+     .info-gps {  
+    border-radius: 20px;
+            text-align: center; border: 1px solid var(--border); display: flex; gap: 15px; justify-content: center; padding: 5px;
+        }
+        .info-lokasi h2 { margin: 0; color: var(--primary); font-size: 22px; }
+        
+        /* Input & Tombol Lokasi */
+        .search-box { margin-top: 15px; display: flex; gap: 8px; justify-content: center; }
+        .search-box input {
+            padding: 12px; border-radius: 12px; border: 1px solid var(--border);
+            width: 60%; background: var(--bg); color: var(--text); outline: none;
+        }
+        .btn-loc {
+            background: var(--primary); color: white; border: none; 
+            padding: 2px 10px; border-radius: 12px; cursor: pointer;
+        }
+        .btn-cari {
+            background: var(--primary); color: white; border: none; font-size:18px;
+            padding: 5px 10px; border-radius: 12px; cursor: pointer;
+        }
+
+        /* Tabel Styles */
+        .table-wrapper {
+            background: var(--card-bg); border-radius: 20px; overflow: hidden;
+            border: 1px solid var(--border); box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; color: var(--text); }
+        th { background: var(--primary); color: white; padding: 12px 5px; }
+        td { padding: 15px 5px; text-align: center; border-bottom: 1px solid var(--border); }
+        
+        tr.hari-ini { background: var(--primary); color: white !important; font-weight: bold; }
+        tr.hari-ini td { color: white !important; }
+        .loading { text-align: center; padding: 50px; opacity: 0.6; }
+
+   #countdown-box {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    border: none;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Kasih efek kilatan cahaya tipis */
+#countdown-box::after {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: rgba(255,255,255,0.05);
+    transform: rotate(30deg);
+}
+
+#timer-sholat {
+    font-family: 'Courier New', Courier, monospace; /* Biar angka detiknya stabil gak goyang-goyang */
+    letter-spacing: 2px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+   .switch { position: relative; display: inline-block; width: 45px; height: 22px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+.slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: #009688; }
+input:checked + .slider:before { transform: translateX(23px); }
+    </style>
+</head>
+<body>
+
+   <audio id="audioAdzan" preload="auto">
+    <source src="https://alquran.pages.dev/quran/audio/adzan.mp3" type="audio/mpeg">
+</audio>
+
+    <div class="pengaturan-adzan" style="background: var(--card-bg); padding: 8px 25px; border-radius: 15px; margin-bottom: 4px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between;">
+    <div style="text-align: left;">
+        <span style="font-weight: bold; display: block;">Auto Adzan Mekkah</span>
+        <small style="font-size: 10px; color: gray;">Aktifkan suara saat masuk waktu sholat</small>
+    </div>
+    <label class="switch">
+        <input type="checkbox" id="checkAdzan" onchange="simpanPengaturanAdzan()">
+        <span class="slider round"></span>
+    </label>
+</div>
+
+    <div id="modalAudio" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; align-items:center; justify-content:center; backdrop-filter: blur(5px);">
+    <div style="background: var(--card-bg); color: var(--text); padding: 30px; border-radius: 20px; text-align:center; width:85%; max-width:400px; border: 1px solid var(--primary); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <div style="font-size: 50px; margin-bottom: 15px;">🔊</div>
+        <h3 style="margin:0 0 10px 0;">Aktifkan Adzan?</h3>
+        <p style="font-size: 14px; opacity: 0.8; margin-bottom: 25px;">Pengaturan Global suara Adzan Mekkah hanya bisa berkumandang saat Halaman ini di buka.</p>
+        
+        <div style="display: flex; gap: 10px;">
+            <button onclick="pancingAudio()" style="flex:1; background: var(--primary); color:white; border:none; padding:12px; border-radius:12px; font-weight:bold; cursor:pointer;">Ya, Aktifkan</button>
+            <button onclick="tutupModal()" style="flex:1; background: #e74c3c; color:white; border:none; padding:12px; border-radius:12px; font-weight:bold; cursor:pointer;">Nanti Saja</button>
+        </div>
+    </div>
+</div>
+
+    <div class="header-nav" style="background:var(--primary); color:white; padding:15px; text-align: center; position:sticky; top:0; z-index:100;">
+        <h2 style="margin:0; font-size:18px;">Jadwal Sholat</h2>
+    </div>
+
+    <div class="container-jadwal">
+        <div class="info-lokasi">
+   <div id="countdown-box" style="background: var(--primary); color: white; padding: 15px; border-radius: 15px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+    <div style="font-size: 14px; opacity: 0.9;" id="label-next">Menuju Waktu...</div>
+    <div style="font-size: 24px; font-weight: bold; margin: 5px 0;" id="timer-sholat">00:00:00</div>
+    <div style="font-size: 12px; opacity: 0.8;" id="nama-sholat-next">--</div>
+</div>
+
+   <div class="info-gps">
+         <h2 id="nama-kota">Jakarta</h2>
+   <button class="btn-loc" style="background:var(--primary-dark)" onclick="pakeGPS()">GPS📍</button>
+   </div>
+            <p id="bln-tahun" style="margin:5px 0; font-size:14px; color:var(--text); opacity:0.8;">--</p>
+            
+            <div class="search-box">
+                <input type="text" id="input-kota" placeholder="Pilih kota/kecamatan...">
+                <button class="btn-cari" onclick="cariKotaManual()">🔍</button>
+           </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+    <tr>
+        <th>Tgl</th>
+        <th style="background:#e67e22">Imsak</th> <th>Subuh</th>
+        <th>Dzuhur</th>
+        <th>Ashar</th>
+        <th>Maghrib</th>
+        <th>Isya</th>
+    </tr>
+</thead>
+                <tbody id="isi-jadwal">
+                    <tr><td colspan="6" class="loading">Memuat jadwal...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+   // 1. Taruh Variabel Global di paling atas script
+        let kotaAktif = localStorage.getItem('userKota') || 'Jakarta';
+        let suaraAktif = false;
+        let wakeLock = null;
+        let adzanSudahBunyi = false; 
+        
+    function aktifkanSuara() {
+        const adzanPlayer = document.getElementById('audioAdzan');
+        
+        if (!adzanPlayer) {
+            alert("Error: Elemen audio tidak ditemukan!");
+            return;
+        }
+
+        adzanPlayer.play().then(() => {
+            adzanPlayer.pause();
+            adzanPlayer.currentTime = 0;
+            suaraAktif = true;
+            document.getElementById('btn-suara').innerText = "✅ Adzan Aktif";
+            document.getElementById('btn-suara').style.background = "#bdc3c7";
+            alert("Suara Adzan sudah diaktifkan, Bossku!");
+        }).catch(e => alert("Gagal aktifkan suara. Pastikan HP tidak mode senyap!"));
+    }
+
+        function terapkanTema() {
+            const tipe = localStorage.getItem('tipeMushaf') || 'mushaf-1';
+            const isDark = localStorage.getItem('userDark') === 'true';
+            document.body.className = tipe;
+            if (isDark) document.body.classList.add('dark-mode');
+        }
+  
+        // 3. Fungsi Cari Kota
+        function cariKotaManual() {
+            const val = document.getElementById('input-kota').value;
+            if (val) {
+                kotaAktif = val;
+                localStorage.setItem('userKota', val);
+                muatJadwal();
+            }
+        }
+
+        function pakeGPS() {
+            if (navigator.geolocation) {
+                document.getElementById('nama-kota').innerText = "Mencari Lokasi...";
+                navigator.geolocation.getCurrentPosition(async (pos) => {
+                    try {
+                        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`);
+                        const d = await r.json();
+                        const kota = d.address.city || d.address.town || d.address.suburb || "Jakarta";
+                        kotaAktif = kota;
+                        localStorage.setItem('userKota', kota);
+                        muatJadwal();
+                    } catch (e) { alert("GPS Berhasil, tapi gagal ambil nama kota."); }
+                });
+            }
+        }
+
+        // 3. Load Data dari API
+       async function muatJadwal() {
+    const wadahTabel = document.getElementById('isi-jadwal');
+    const namaKotaTampil = document.getElementById('nama-kota');
+    
+    namaKotaTampil.innerText = kotaAktif;
+    wadahTabel.innerHTML = '<tr><td colspan="7" class="loading">Sedang mencari jadwal di ' + kotaAktif + '...</td></tr>';
+
+    const skr = new Date();
+    const bulan = skr.getMonth() + 1;
+    const tahun = skr.getFullYear();
+    const tglSkr = skr.getDate();
+
+    try {
+        const url = `https://api.aladhan.com/v1/calendarByAddress?address=${kotaAktif},Indonesia&method=11&month=${bulan}&year=${tahun}`;
+        
+        // 1. Ambil data dari internet dulu
+        const r = await fetch(url);
+        const res = await r.json();
+        
+        if (res.code !== 200 || !res.data) {
+            throw new Error("Kota tidak ditemukan");
+        }
+
+        // 2. Definisi variabel data SETELAH fetch berhasil
+        const data = res.data;
+        let html = '';
+        
+        // 3. JALANKAN COUNTDOWN DI SINI (Setelah data ada)
+        const hariIniData = data.find(h => parseInt(h.date.gregorian.day) === tglSkr);
+        if (hariIniData) {
+            updateCountdown(hariIniData.timings);
+        }
+
+          // 4. Gambar Tabel
+        data.forEach(hari => {
+            const tgl = parseInt(hari.date.gregorian.day);
+            const isToday = (tgl === tglSkr) ? 'class="hari-ini"' : '';
+            
+            // Format waktu biar bersih (tanpa timezone)
+            const f = (waktu) => waktu.split(' ')[0];
+
+            html += `<tr ${isToday}>
+                <td>${tgl}</td>
+                <td style="font-weight:bold; color:#e67e22">${f(hari.timings.Imsak)}</td>
+                <td>${f(hari.timings.Fajr)}</td>
+                <td>${f(hari.timings.Dhuhr)}</td>
+                <td>${f(hari.timings.Asr)}</td>
+                <td>${f(hari.timings.Maghrib)}</td>
+                <td>${f(hari.timings.Isha)}</td>
+            </tr>`;
+        });
+
+        wadahTabel.innerHTML = html;
+        document.getElementById('bln-tahun').innerText = data[0].date.gregorian.month.en + " " + tahun;
+
+        setTimeout(() => {
+            const el = document.querySelector('.hari-ini');
+            if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 500);
+
+    } catch (e) {
+        console.error(e);
+        wadahTabel.innerHTML = `<tr><td colspan="7" style="color:red; padding:20px;">
+            Maaf, kota "<b>${kotaAktif}</b>" tidak ditemukan.
+        </td></tr>`;
+    }
+}
+
+        // Jalankan saat startup
+        window.onload = () => {
+            terapkanTema();
+            muatJadwal();
+        };
+
+    function updateCountdown(timings) {
+    const timerEl = document.getElementById('timer-sholat');
+     const adzanPlayer = document.getElementById('audioAdzan');
+    const labelEl = document.getElementById('nama-sholat-next');
+    const labelUtama = document.getElementById('label-next');
+
+    // Fungsi kecil untuk buang (WIB) atau (GMT)
+    const bersihkanJam = (jamApi) => jamApi.split(' ')[0];
+
+    setInterval(() => {
+        const sekarang = new Date();
+        // Format jam sekarang ke HH:mm
+        const jamSkr = sekarang.getHours().toString().padStart(2, '0') + ":" + 
+                       sekarang.getMinutes().toString().padStart(2, '0');
+
+        const daftarSholat = [
+            { nama: 'Imsak', jam: bersihkanJam(timings.Imsak) },
+            { nama: 'Subuh', jam: bersihkanJam(timings.Fajr) },
+            { nama: 'Dzuhur', jam: bersihkanJam(timings.Dhuhr) },
+            { nama: 'Ashar', jam: bersihkanJam(timings.Asr) },
+            { nama: 'Maghrib', jam: bersihkanJam(timings.Maghrib) },
+            { nama: 'Isya', jam: bersihkanJam(timings.Isha) }
+        ];
+
+        // Cari sholat yang jam-nya lebih besar dari jam sekarang
+        let sholatNext = daftarSholat.find(s => s.jam > jamSkr);
+        
+        // Kalau sudah lewat Isya, berarti sholat berikutnya Imsak besok pagi
+        let besok = false;
+        if (!sholatNext) {
+            sholatNext = daftarSholat[0];
+            besok = true;
+        }
+
+        const [h, m] = sholatNext.jam.split(':');
+        let target = new Date();
+        target.setHours(parseInt(h), parseInt(m), 0);
+
+        if (besok) target.setDate(target.getDate() + 1);
+
+        const selisih = target - sekarang;
+        
+        // Pastikan selisih tidak negatif
+        if (selisih > 0) {
+            const jam = Math.floor(selisih / 3600000);
+            const menit = Math.floor((selisih % 3600000) / 60000);
+            const detik = Math.floor((selisih % 60000) / 1000);
+
+            labelUtama.innerText = "Menuju Waktu " + sholatNext.nama;
+            labelEl.innerText = "Pukul " + sholatNext.jam;
+            timerEl.innerText = `${jam.toString().padStart(2, '0')}:${menit.toString().padStart(2, '0')}:${detik.toString().padStart(2, '0')}`;
+
+            // Tambahkan LOGIKA ADZAN di sini (sebelum penutup selisih > 08 detik)
+           if (jam === 00 && menit === 00 && detik === 00) {
+    if (suaraAktif && !adzanSudahBunyi && sholatNext.nama !== 'Imsak') {
+        adzanPlayer.play();
+        adzanSudahBunyi = true; 
+        
+        // Reset 2 detik aja biar bisa test lagi tiap menit
+        setTimeout(() => { adzanSudahBunyi = false; }, 60000);
+    }
+}
+
+        } 
+    }, 1000); 
+} 
+
+   function testSuara() {
+    const adzanPlayer = document.getElementById('audioAdzan');
+    
+    if (adzanPlayer) {
+        // Balikin ke detik 0
+        adzanPlayer.currentTime = 0;
+        
+        // Putar
+        adzanPlayer.play().then(() => {
+            alert("Suara Adzan sedang diputar... (Klik OK untuk hentikan test)");
+            adzanPlayer.pause(); // Berhenti setelah user klik OK
+            adzanPlayer.currentTime = 0;
+        }).catch(e => {
+            alert("Waduh, audionya gak mau jalan! Pastikan sudah klik 'Aktifkan Suara Adzan' dulu ya.");
+        });
+    } else {
+        alert("Elemen audio tidak ditemukan!");
+    }
+}
+   
+  // Fungsi simpan pengaturan ke memori HP
+function simpanPengaturanAdzan() {
+    const isChecked = document.getElementById('checkAdzan').checked;
+    localStorage.setItem('autoAdzan', isChecked);
+    if (isChecked) {
+        document.getElementById('modalAudio').style.display = 'flex';
+    } else {
+        suaraAktif = false;
+    }
+}
+
+   function tutupModal() {
+    document.getElementById('modalAudio').style.display = 'none';
+    // Balikin checklist ke posisi OFF karena user nolak
+    document.getElementById('checkAdzan').checked = false;
+    localStorage.setItem('autoAdzan', false);
+    suaraAktif = false;
+}
+
+// Fungsi Pancingan (Wajib ada klik user)
+   function pancingAudio() {
+    const adzanPlayer = document.getElementById('audioAdzan');
+    
+    // 1. Langsung eksekusi PLAY tanpa ba-bi-bu
+    adzanPlayer.play().then(() => {
+        // Kalau berhasil play, baru kita atur sisanya
+        adzanPlayer.pause();
+        adzanPlayer.currentTime = 0;
+        suaraAktif = true;
+        
+        document.getElementById('modalAudio').style.display = 'none';
+        console.log("Audio Adzan Ready, Bossku!");
+
+        // 2. Kunci Layar (Wake Lock) taruh belakangan, jangan ganggu audio
+        if ('wakeLock' in navigator) {
+            navigator.wakeLock.request('screen').then((lock) => {
+                wakeLock = lock;
+                console.log("Layar dikunci! 🛡️");
+            }).catch(err => console.log("WakeLock gagal, tapi audio aman."));
+        }
+    }).catch(e => {
+        console.error(e);
+        alert("Gagal pancing audio! Cek volume HP atau koneksi internet, Bossku!");
+    });
+  }
+        
+   function simpanPengaturanAdzan() {
+    const isChecked = document.getElementById('checkAdzan').checked;
+    if (isChecked) {
+        document.getElementById('modalAudio').style.display = 'flex';
+    } else {
+        localStorage.setItem('autoAdzan', false);
+        suaraAktif = false;
+    }
+}
+
+// Cek status saat halaman pertama kali dibuka
+window.addEventListener('load', () => {
+    const statusTerakhir = localStorage.getItem('autoAdzan') === 'true';
+    document.getElementById('checkAdzan').checked = statusTerakhir;
+    
+    // Kalau di pengaturan ON, minta pancingan audio
+    if (statusTerakhir) {
+        document.getElementById('modalAudio').style.display = 'flex';
+    }
+});
+
+   
+    </script>
+</body>
+</html>
