@@ -293,6 +293,7 @@
    body.no-tajwid .teks-arab font {
     color: inherit !important; /* Paksa ikut warna teks utama */
 }
+  
 </style>
 </head>
 <body class="mushaf-1">
@@ -1065,19 +1066,12 @@ function filterTajwid(teks) {
     }
 })();
 
-   function keAngkaArab(angka) {
-    const map = {
-        '0': '٠', '1': '١', '2': '٢', '3': '٣', '4': '٤', 
-        '5': '٥', '6': '٦', '7': '٧', '8': '٨', '9': '٩'
-    };
-    return angka.toString().split('').map(c => map[c] || c).join('');
-}
-   function keAngkaArab(n) {
+
+  function keAngkaArab(n) {
     if (!n) return '';
     const map = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-    return n.toString().split('').map(digit => map[digit]).join('');
+    return n.toString().split('').map(digit => map[digit] || digit).join('');
 }
-
     </script>
     
 </body>
