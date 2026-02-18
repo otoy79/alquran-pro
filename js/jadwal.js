@@ -49,7 +49,7 @@ let kotaAktif = localStorage.getItem('userKota') || 'Jakarta';
                         kotaAktif = kota;
                         localStorage.setItem('userKota', kota);
                         muatJadwal();
-                    } catch (e) { alert("GPS Berhasil, tapi gagal ambil nama kota."); }
+                    } catch (e) { pesan("GPS Berhasil, tapi gagal ambil nama kota. (atau Ketik nama Kota/Kecamatan di daerah anda!.)"); }
                 });
             }
         }
@@ -83,7 +83,7 @@ let kotaAktif = localStorage.getItem('userKota') || 'Jakarta';
 
     try {
         // Menggunakan URL dengan parameter tune pilihan Bossku
-        const url = `https://api.aladhan.com/v1/calendarByAddress?address=${kotaAktif},Indonesia&method=11&month=${bulan}&year=${tahun}&tune=1,1,0,2,2,3,4,2`;
+        const url = `https://api.aladhan.com/v1/calendarByAddress?address=${kotaAktif},Indonesia&method=11&month=${bulan}&year=${tahun}&tune=2,2,2,4,3,3,2,2`;  // 4+(dhuhur)
         
         const r = await fetch(url);
         const res = await r.json();
@@ -210,7 +210,7 @@ function renderTabel(data, tglSkr, tahun) {
             timerEl.innerText = `${jam.toString().padStart(2, '0')}:${menit.toString().padStart(2, '0')}:${detik.toString().padStart(2, '0')}`;
 
             // Tambahkan LOGIKA ADZAN di sini (sebelum penutup selisih > 08 detik)
-           if (jam === 00 && menit === 00 && detik === 00) {
+           if (jam === 00 && menit === 00 && detik === 01) {
     if (suaraAktif && !adzanSudahBunyi && sholatNext.nama !== 'Imsak') {
         adzanPlayer.play();
         adzanSudahBunyi = true; 
