@@ -195,7 +195,10 @@
     from { bottom: -100px; opacity: 0; }
     to { bottom: 100px; opacity: 1; } /* HARUS SAMA DENGAN DI JS */
 }
-
+  #status-lonceng {
+    transition: all 0.5s ease;
+}
+/* Opsional: Efek lonceng goyang dikit tiap 10 detik biar kelihatan hidup */
     </style>
 </head>
    <body class="mushaf-1">
@@ -215,8 +218,9 @@
     <h1 style="margin:0; font-family: 'Amiri', serif;">Al-Qur'an Pro</h1>
     <div id="greeting" style="opacity:0.9; font-size:14px; margin-top:10px; height: 38px;">Assalamu'alaikum</div>
  
-    <div id="jkt-countdown-sholat" style="font-size: 13px; margin: 5px 0; font-weight: 500; text-align:center; border-top:1px solid rgba(255,255,255,0.2); border-bottom:1px solid rgba(255,255,255,0.2); padding: 5px 0;">
-        Menghitung waktu sholat...
+   <div id="jkt-countdown-sholat" style="font-size: 13px; margin: 5px 0; font-weight: 500; text-align:center; border-top:1px solid rgba(255,255,255,0.2); border-bottom:1px solid rgba(255,255,255,0.2); padding: 5px 0; display: flex; align-items: center; justify-content: center; gap: 8px;">
+    <span id="status-lonceng" style="font-size: 16px; filter: grayscale(1); opacity: 0.5;">🔊</span>
+    <span id="teks-countdown">Menghitung waktu sholat...</span>
 </div>
       <div style="font-size: 11px; opacity: 0.8; margin: 8px; text-align: right;">
         GPS    📍 Jadwal Sholat Otomatis
@@ -274,11 +278,51 @@
 
     </div>
 
+  <div id="modal-izin-suara" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 20000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+    <div style="background: var(--card-bg); width: 85%; max-width: 320px; padding: 25px; border-radius: 20px; text-align: center; border: 2px solid var(--primary);">
+        <div style="font-size: 50px; margin-bottom: 15px;">🔔</div>
+        <h2 style="color: var(--primary); margin-bottom: 10px; font-size: 20px;">Aktifkan Suara Adzan?</h2>
+        <p style="font-size: 14px; color: var(--text); opacity: 0.8; margin-bottom: 20px; line-height: 1.5;">
+            Agar Fitur suara Adzan & Pengingat berjalan, aplikasi memerlukan izin memutar suara di latar belakang. (Jangan tutup halaman ini agar suara Alert, Tahrim, Adzan, berkumandang!)
+        </p>
+        <button onclick="izinkanSuara()" style="background: var(--primary); color: white; border: none; padding: 12px 25px; border-radius: 10px; font-weight: bold; width: 100%; cursor: pointer; box-shadow: 0 4px 10px var(--primary);">
+            AKTIFKAN SEKARANG
+        </button>
+        <button onclick="tutupModalIzin()" style="background: transparent; color: var(--text); border: none; margin-top: 15px; font-size: 12px; opacity: 0.6;">Nanti Saja</button>
+    </div>
+</div>
+
+   <div id="custom-alert" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); background:var(--card-bg); border:1px solid var(--border); padding:20px; border-radius:15px; box-shadow:0 10px 30px rgba(0,0,0,0.5); z-index:10000; width:80%; max-width:300px; text-align:center;">
+    <div id="isi-alert" style="margin-bottom:20px; color:var(--text); font-size:14px;"></div>
+    <button onclick="tutupAlert()" style="background:var(--primary); color:white; border:none; padding:8px 25px; border-radius:10px; cursor:pointer;">OKE</button>
+</div>
+<div id="alert-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999;"></div>
+
     
   <script src="js/kalender.js"></script>
   <script src="js/jadwal.js"></script>
    <script src="js/script.js"></script>
-  
+
+    <script>
+   let wakeLock = null;
+
+// Fungsi untuk meminta Wake Lock (Mencegah Tidur)
+async function jagaAplikasiTetapHidup() {
+    try {
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.log("Aplikasi dalam mode 'Melek' (Wake Lock Active)");
+            
+            // Kalau tiba-tiba terputus, minta lagi otomatis
+            wakeLock.addEventListener('release', () => {
+                console.log('Wake Lock dilepas, mencoba mengaktifkan kembali...');
+            });
+        }
+    } catch (err) {
+        console.log("Wake Lock Gagal: " + err.message);
+    }
+}
+    </script>
     <script>
         let asistenStandBy = false;
         let suaraAsisten = new Audio();
@@ -337,7 +381,7 @@
         // Contoh: quran.html?surah=2&ayat=255
         window.location.href = `quran.html?surah=${b.s}&ayat=${b.a}`;
     } else {
-        alert("Belum ada riwayat bacaan.");
+        pesan("Belum ada riwayat bacaan.");
     }
 }
 
@@ -477,7 +521,7 @@ if (sJam === 0 && sMenit === 10 && sDetik === 3) {
 }
 
 // --- LOGIKA 2: TEPAT WAKTU (IMSAK / ADZAN) ---
-if (sJam === 0 && sMenit === 00 && sDetik === 5) {
+    if (sJam === 0 && sMenit === 00 && sDetik === 5) {
     if (namaSholat === 'Imsak') {
         putarSirineImsak(); 
     } else {
@@ -486,13 +530,26 @@ if (sJam === 0 && sMenit === 00 && sDetik === 5) {
 }
 
         // TAMPILAN TIMER
-        if (el) {
-            if (sJam === 0 && sMenit < 6) {
-                el.innerHTML = `<div style="background:red; color:white; padding:10px; border-radius:10px; animation:blink 0.8s infinite;">⚠️ ${sMenit}m ${sDetik}s LAGI ${namaSholat.toUpperCase()}!</div>`;
-            } else {
-                el.innerHTML = `⏳ <b>${sJam}j ${sMenit}m ${sDetik}s</b> lagi menuju <b>${namaSholat}</b>`;
-            }
-        }
+if (el) {
+    // Cek status izin buat nentuin warna lonceng
+    const sudahIzin = localStorage.getItem('izin_suara_adzan') === 'true';
+    const gayaLonceng = sudahIzin 
+        ? "filter: grayscale(0) drop-shadow(0 0 5px #d4af37); opacity: 1;" 
+        : "filter: grayscale(1); opacity: 0.5;";
+    
+    // Gabungkan lonceng ke dalam innerHTML
+    const iconLonceng = `<button class="menu-btn"><span id="status-lonceng" style="font-size: 18px; ${gayaLonceng} margin-right: 8px; transition: all 0.3s;" onclick="cekIzinUlang()">🔊</span></button>`;
+
+    if (sJam === 0 && sMenit < 6) {
+        el.innerHTML = `<div style="background:red; color:white; padding:10px; border-radius:10px; animation:blink 0.8s infinite; display:flex; align-items:center; justify-content:center;">
+            ${iconLonceng} ⚠️ ${sMenit}m ${sDetik}s LAGI ${namaSholat.toUpperCase()}!
+        </div>`;
+    } else {
+        el.innerHTML = `<div style="display:flex; align-items:center; justify-content:center;">
+            ${iconLonceng} ⏳ <b>${sJam}j ${sMenit}m ${sDetik}s </b> <i style="padding: 0 4px;"> lagi menuju </i> <b> ${namaSholat} </b>
+        </div>`;
+    }
+}
     }, 1000);
 }
 
@@ -742,7 +799,74 @@ document.addEventListener('click', function() {
         window.suaraAsisten.currentTime = 0;
     }
 }
+  
+  // Fungsi Cek Izin saat halaman dibuka
+    function cekIzinUlang() {
+    const sudahIzin = localStorage.getItem('izin_suara_adzan') === 'true';
+    if (!sudahIzin) {
+        document.getElementById('modal-izin-suara').style.display = 'flex';
+    } else {
+        pesan("Selalu clik bagian ini untuk 🔊 suara Fitur Adzan aktif dan jangan tutup Halaman ini agar suara Alert, Tahrim, Adzan bisa berkumandang! (biarkan halaman ini aktif di latar belakang!)");
+    }
+}
 
+
+// Fungsi Eksekusi Izin (Buka Segel Audio)
+function izinkanSuara() {
+    if (window.suaraAsisten) {
+        window.suaraAsisten.src = "https://alquran-pro.pages.dev/audio/belt.mp3";
+        window.suaraAsisten.volume = 0.1;
+        window.suaraAsisten.play().then(() => {
+            window.suaraAsisten.pause();
+            window.suaraAsisten.volume = 1.0;
+            
+            localStorage.setItem('izin_suara_adzan', 'true');
+            
+            tutupModalIzin();
+            updateIkonLonceng(); // <--- Update warna lonceng setelah klik
+            
+            pesan("✅ Fitur Adzan Aktif!");
+        }).catch(e => {
+            pesan("Klik lagi Bossku untuk mengaktifkan!");
+        });
+    }
+}
+
+  function aktifkanBackgroundAudio() {
+    const silentAudio = new Audio("https://alquran-pro.pages.dev/audio/silent.ogg");
+    silentAudio.loop = true;
+    silentAudio.volume = 0.01; // Kecilkan sampai hampir tidak terdengar
+    silentAudio.play();
+}
+
+function tutupModalIzin() {
+    document.getElementById('modal-izin-suara').style.display = 'none';
+}
+
+  // --- FUNGSI UPDATE WARNA LONCENG ---
+function updateIkonLonceng() {
+    const lonceng = document.getElementById('status-lonceng');
+    const sudahIzin = localStorage.getItem('izin_suara_adzan') === 'true';
+
+    if (lonceng) {
+        if (sudahIzin) {
+            // Lonceng Emas Berkilau
+            lonceng.style.filter = "grayscale(0) drop-shadow(0 0 5px #d4af37)";
+            lonceng.style.opacity = "1";
+            lonceng.title = "Alarm Aktif";
+        } else {
+            // Lonceng Abu-abu (Mati)
+            lonceng.style.filter = "grayscale(1)";
+            lonceng.style.opacity = "0.5";
+            lonceng.title = "Klik untuk Aktifkan Alarm";
+        }
+    }
+}
+
+  window.addEventListener('load', () => {
+    cekIzinSuara();
+    updateIkonLonceng(); // Cek status saat aplikasi baru dibuka
+});
   window.addEventListener('pageshow', () => {
     sinkronTema();
     cekBookmark();
@@ -755,10 +879,9 @@ document.addEventListener('click', function() {
         cekAgendaHariIni(); 
     }, 5000); 
 });
-    </script>
+  </script>
     
-   <script>
-  document.addEventListener("DOMContentLoaded", function() {
+   <script> document.addEventListener("DOMContentLoaded", function() {
   const app = document.getElementById('app-container');
   if(app) {
       app.style.transform = "translateX(350px)";
@@ -767,6 +890,17 @@ document.addEventListener('click', function() {
       }, 300);
   }
 });
+
+  function pesan(teks) {
+    document.getElementById('isi-alert').innerText = teks;
+    document.getElementById('custom-alert').style.display = 'block';
+    document.getElementById('alert-overlay').style.display = 'block';
+}
+
+    function tutupAlert() {
+    document.getElementById('custom-alert').style.display = 'none';
+    document.getElementById('alert-overlay').style.display = 'none';
+}
 </script>
  
 </body>
