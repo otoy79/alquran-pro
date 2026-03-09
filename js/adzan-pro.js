@@ -97,28 +97,6 @@ function tutupNotif() {
     }
 }
 
-// Fungsi untuk mengubah koordinat jadi Nama Jalan (Reverse Geocoding)
-async function dapatkanNamaAlamat(lat, lon) {
-    const elStatus = document.getElementById('status-lokasi');
-    
-    try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`);
-        const data = await response.json();
-        if (data && data.display_name) {
-            // Tampilkan alamat di layar
-            if (elStatus) {
-                elStatus.innerHTML = `<span class="dot-gps"></span> ${data.display_name}`;
-                elStatus.style.textAlign = "left"; // Biar rapi kalau alamatnya panjang
-                elStatus.style.fontSize = "10px";
-       // Simpan nama jalan ke localStorage biar pas buka lagi langsung muncul tanpa nunggu GPS lock
-localStorage.setItem('last_address', data.display_name);
-            }
-        }
-    } catch (e) {
-        if (elStatus) elStatus.innerText = "Lokasi: GPS Aktif (Gagal muat nama jalan)";
-    }
-}
-
 // --- UPDATE FUNGSI AMBIL ALAMAT ---
 async function dapatkanNamaAlamat(lat, lon) {
     const elStatus = document.getElementById('status-lokasi');
@@ -140,45 +118,70 @@ async function dapatkanNamaAlamat(lat, lon) {
 
 async function ambilJadwal() {
     const elCountdown = document.getElementById('jkt-countdown-sholat');
+    const elStatus = document.getElementById('status-lokasi');
     const sekarang = new Date();
-    const tglKey = `${sekarang.getFullYear()}-${sekarang.getMonth() + 1}-${sekarang.getDate()}`;
+    const tglHariIni = sekarang.getDate();
+    const blnHariIni = sekarang.getMonth() + 1;
+    const thnHariIni = sekarang.getFullYear();
 
+    // --- 1. CEK CACHE LOCALSTORAGE DULU (Biar Langsung Jreng Pas Offline) ---
+    const cacheLama = localStorage.getItem('jadwal_sholat_data');
+    const alamatLama = localStorage.getItem('userAlamatLengkap');
+
+    if (cacheLama) {
+        const cache = JSON.parse(cacheLama);
+        // Jika data cache bulan & tahunnya cocok, pakai itu dulu sambil nunggu GPS
+        if (cache.bulan === blnHariIni && cache.tahun === thnHariIni) {
+            const dataHariIni = cache.data.find(h => parseInt(h.date.gregorian.day) === tglHariIni);
+            if (dataHariIni) {
+                jadwalSholatGlobal = dataHariIni.timings;
+                updateTampilanKecil();
+                mulaiCountdown();
+                if (elStatus && alamatLama) {
+                    elStatus.innerHTML = `<span class="dot-gps" style="background:orange;"></span> ${alamatLama} (Offline)`;
+                }
+                console.log("Menggunakan data offline yang tersimpan.");
+            }
+        }
+    }
+
+    // --- 2. BARU JALANKAN GPS (Update data kalau ada internet/sinyal) ---
     const fetchJadwalGPS = async (lat, lon) => {
         try {
-            // Gunakan koordinat untuk akurasi tinggi
-            const url = `https://api.aladhan.com/v1/calendar?latitude=${lat}&longitude=${lon}&method=11&month=${sekarang.getMonth() + 1}&year=${sekarang.getFullYear()}&tune=2,2,2,4,3,3,2,2`;
+            const url = `https://api.aladhan.com/v1/calendar?latitude=${lat}&longitude=${lon}&method=11&month=${blnHariIni}&year=${thnHariIni}&tune=2,2,2,4,3,3,2,2`;
             const r = await fetch(url);
             const res = await r.json();
             
             if (res.code === 200) {
-                const dataHariIni = res.data.find(h => parseInt(h.date.gregorian.day) === sekarang.getDate());
+                const dataHariIni = res.data.find(h => parseInt(h.date.gregorian.day) === tglHariIni);
                 jadwalSholatGlobal = dataHariIni.timings;
 
-                // SIMPAN KOORDINAT KE LOKALSTORAGE (Kunci Sinkronisasi)
+                // SIMPAN KE LOCALSTORAGE
                 localStorage.setItem('userLat', lat);
                 localStorage.setItem('userLon', lon);
                 localStorage.setItem('jadwal_sholat_data', JSON.stringify({
                     kota: "Lokasi GPS",
                     lat: lat,
                     lon: lon,
-                    bulan: sekarang.getMonth() + 1,
-                    tahun: sekarang.getFullYear(),
+                    bulan: blnHariIni,
+                    tahun: thnHariIni,
                     data: res.data
                 }));
 
                 updateTampilanKecil();
                 mulaiCountdown();
+                kirimJadwalKeKodular();
                 dapatkanNamaAlamat(lat, lon);
             }
         } catch (e) {
-            if(elCountdown) elCountdown.innerText = "Gagal sinkron GPS.";
+            console.log("Sinyal lemah, tetap pakai data offline.");
         }
     };
 
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             (pos) => { fetchJadwalGPS(pos.coords.latitude, pos.coords.longitude); },
-            () => { console.log("GPS Off, pakai data terakhir"); },
+            () => { console.log("GPS mati, biarkan pakai data offline."); },
             { enableHighAccuracy: true, timeout: 5000 }
         );
     }
