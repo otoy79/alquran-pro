@@ -198,7 +198,35 @@
   #status-lonceng {
     transition: all 0.5s ease;
 }
-/* Opsional: Efek lonceng goyang dikit tiap 10 detik biar kelihatan hidup */
+  #status-lokasi {
+    font-size: 10px;
+    opacity: 0.9;
+    margin: 10px 20px;
+    color: #ffffff;
+    line-height: 1.4;
+    background: rgba(0, 0, 0, 0.2); /* Kasih background tipis biar kebaca */
+    padding: 8px 12px;
+    border-radius: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    border: 0.5px solid rgba(255,255,255,0.1);
+}
+
+.dot-gps {
+    height: 10px;
+    width: 10px;
+    background-color: #2ecc71;
+    border-radius: 50%;
+    flex-shrink: 0; /* Biar buletannya gak gepeng pas teks panjang */
+    margin-top: 3px;
+    box-shadow: 0 0 8px #2ecc71;
+    animation: blink 1.2s infinite;
+}
+
+@keyframes blink {
+    0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; }
+}
     </style>
 </head>
    <body class="mushaf-1">
@@ -222,9 +250,9 @@
     <span id="status-lonceng" style="font-size: 16px; filter: grayscale(1); opacity: 0.5;">🔊</span>
     <span id="teks-countdown">Menghitung waktu sholat...</span>
 </div>
-      <div style="font-size: 11px; opacity: 0.8; margin: 8px; text-align: right;">
-        GPS    📍 Jadwal Sholat Otomatis
-        </div>
+      <div id="status-lokasi" style="font-size: 11px; opacity: 0.8; margin: 8px; text-align: right;">
+    <span class="dot-gps"></span> Mendeteksi Posisi GPS...
+</div>
        </div>
   
       <div class="sholat-container">
@@ -302,595 +330,49 @@
   <script src="js/kalender.js"></script>
   <script src="js/jadwal.js"></script>
    <script src="js/script.js"></script>
-
-    <script>
-   let wakeLock = null;
-
-// Fungsi untuk meminta Wake Lock (Mencegah Tidur)
-async function jagaAplikasiTetapHidup() {
-    try {
-        if ('wakeLock' in navigator) {
-            wakeLock = await navigator.wakeLock.request('screen');
-            console.log("Aplikasi dalam mode 'Melek' (Wake Lock Active)");
-            
-            // Kalau tiba-tiba terputus, minta lagi otomatis
-            wakeLock.addEventListener('release', () => {
-                console.log('Wake Lock dilepas, mencoba mengaktifkan kembali...');
-            });
-        }
-    } catch (err) {
-        console.log("Wake Lock Gagal: " + err.message);
-    }
-}
-    </script>
-    <script>
-        let asistenStandBy = false;
-        let suaraAsisten = new Audio();
-
-        function sinkronTema() {
-    // 1. Ambil data tipe mushaf
-    const tipe = localStorage.getItem('tipeMushaf') || 'mushaf-1';
-    
-    // 2. Ambil data dark mode (Kita cek apakah isinya string 'true' atau boolean true)
-    const isDark = localStorage.getItem('userDark') === 'true' || localStorage.getItem('userDark') === true;
-
-    // 3. Terapkan Tipe Mushaf ke Class Body
-    document.body.className = tipe;
-
-    // 4. Logika Dark Mode (Sesuai batasan Mushaf 2 & 3)
-    if (isDark && tipe !== 'mushaf-2' && tipe !== 'mushaf-3') {
-        document.body.classList.add('dark-mode');
-        document.documentElement.setAttribute('data-theme', 'dark');
-        // Warna background darurat biar gak kedip putih
-        document.documentElement.style.backgroundColor = '#121212'; 
-    } else {
-        document.body.classList.remove('dark-mode');
-        document.documentElement.setAttribute('data-theme', 'light');
-        document.documentElement.style.backgroundColor = '#ffffff';
-    }
-}
-
-        // 2. Cek Bookmark
-        function cekBookmark() {
-    // Ambil data dari KTP permanen (localStorage)
-    const b = JSON.parse(localStorage.getItem('quran_bmark'));
-    
-    const wadahCard = document.getElementById('resume-home');
-    const infoTeks = document.getElementById('resume-info-home');
-
-    if (b && wadahCard && infoTeks) {
-        wadahCard.style.display = 'block';
-        
-        // Menampilkan Nama Surah, Ayat, dan Waktu Save (b.waktu)
-        // b.waktu berasal dari simpanBmark di script.js
-        infoTeks.innerHTML = `
-            ${b.nama} (Ayat ${b.a})
-            <div style="font-size: 11px; font-weight: normal; opacity: 0.8; margin-top: 4px;">
-                🕒 Disimpan: ${b.waktu || 'Baru saja'}
-            </div>
-        `;
-    }
-}
-
-        function bukaTerakhir() {
-    // Ambil data bookmark dari memori HP
-    const b = JSON.parse(localStorage.getItem('quran_bmark'));
-    
-    if (b) {
-        // Kita kirim parameter surah DAN ayat ke quran.html
-        // Contoh: quran.html?surah=2&ayat=255
-        window.location.href = `quran.html?surah=${b.s}&ayat=${b.a}`;
-    } else {
-        pesan("Belum ada riwayat bacaan.");
-    }
-}
-
-        // 3. Ambil Jadwal Sholat Jakarta (Default)
-       let jadwalSholatGlobal = {};
-
-async function ambilJadwal() {
-    const displayCountdown = document.getElementById('jkt-countdown-sholat');
-    
-    // Ambil kota dari localStorage atau default ke Jakarta jika belum ada
-    const kotaTersimpan = localStorage.getItem('userKota') || "Jakarta";
-    const tanggalHariIni = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
-
-    // 1. CEK LOCAL STORAGE DULU
-    const cacheIndex = localStorage.getItem('jadwal_index_cache');
-    if (cacheIndex) {
-        const cache = JSON.parse(cacheIndex);
-        // Jika kota dan tanggalnya masih sama, ambil dari memori
-        if (cache.kota === kotaTersimpan && cache.tanggal === tanggalHariIni) {
-            console.log("Jadwal Baris Index: Pakai Cache");
-            jadwalSholatGlobal = cache.data;
-            updateTampilanKecil();
-            mulaiCountdown();
-            return;
-        }
-    }
-
-    // 2. JIKA DATA TIDAK ADA / KOTA BERGANTI / GANTI HARI -> FETCH API
-    try {
-        console.log("Jadwal Baris Index: Fetching data untuk " + kotaTersimpan);
-        // Samakan parameter 'tune' dengan jadwal utama agar sinkron
-        const url = `https://api.aladhan.com/v1/timingsByCity?city=${kotaTersimpan}&country=Indonesia&method=11&tune=2,2,2,4,3,3,2,2`;  // 4+(dhuhur)
-        
-        const r = await fetch(url);
-        const res = await r.json();
-        
-        if (res.code !== 200) throw new Error("Gagal ambil data");
-
-        jadwalSholatGlobal = res.data.timings;
-
-        // SIMPAN KE LOCAL STORAGE
-        const objekSimpan = {
-            kota: kotaTersimpan,
-            tanggal: tanggalHariIni,
-            data: jadwalSholatGlobal
-        };
-        localStorage.setItem('jadwal_index_cache', JSON.stringify(objekSimpan));
-
-        updateTampilanKecil();
-        mulaiCountdown();
-
-    } catch (e) { 
-        console.error(e);
-        if(displayCountdown) displayCountdown.innerText = "Gagal memuat jadwal";
-    }
-}
-
-// Fungsi bantu update angka di kartu kecil
-    function updateTampilanKecil() {
-    const f = (w) => w.split(' ')[0]; // Bersihkan format jam
-    
-    document.getElementById('s-imsak').innerText = f(jadwalSholatGlobal.Imsak);
-    document.getElementById('s-subuh').innerText = f(jadwalSholatGlobal.Fajr);
-    document.getElementById('s-dzuhur').innerText = f(jadwalSholatGlobal.Dhuhr);
-    document.getElementById('s-ashar').innerText = f(jadwalSholatGlobal.Asr);
-    document.getElementById('s-maghrib').innerText = f(jadwalSholatGlobal.Maghrib);
-    document.getElementById('s-isya').innerText = f(jadwalSholatGlobal.Isha);
-
-   cekAgendaHariIni();
-}
-
-     function aktifkanAsisten() {
-    // Pancingan suara kosong biar browser kasih izin selamanya
-    asistenNgomong(""); 
-    asistenStandBy = true;
-    console.log("Asisten Berhasil Dibangunkan!");
-    
-    // Hilangkan tombol pancingan kalau ada
-    const btn = document.getElementById('btn-pancing');
-    if(btn) btn.style.display = 'none';
-}
-
-   function mulaiCountdown() {
-    const listNama = {'Imsak':'Imsak','Fajr':'Subuh','Dhuhr':'Dzuhur','Asr':'Ashar','Maghrib':'Maghrib','Isha':'Isya'};
-    if (window.intervalCountdownIndex) clearInterval(window.intervalCountdownIndex);
-
-    window.intervalCountdownIndex = setInterval(() => {
-        if (typeof jadwalSholatGlobal === 'undefined' || !jadwalSholatGlobal) return;
-
-        const sekarang = new Date();
-        const f = (w) => w ? w.split(' ')[0] : "00:00";
-        const jamSekarang = sekarang.getHours().toString().padStart(2,'0') + ":" + sekarang.getMinutes().toString().padStart(2,'0');
-        
-        let targetWaktu = null; 
-        let namaSholat = "";
-
-        // 1. CARI TARGET BERIKUTNYA
-        for (let key in listNama) {
-            if (jadwalSholatGlobal[key] && f(jadwalSholatGlobal[key]) > jamSekarang) {
-                targetWaktu = f(jadwalSholatGlobal[key]);
-                namaSholat = listNama[key];
-                break;
-            }
-        }
-
-        // 2. PERBAIKAN DI SINI: Jika sudah lewat Isya, target berikutnya adalah IMSAK BESOK
-        if (!targetWaktu) { 
-            targetWaktu = f(jadwalSholatGlobal['Imsak']); 
-            namaSholat = "Imsak"; 
-        }
-
-        const [h, m] = targetWaktu.split(':');
-        const waktuTarget = new Date();
-        waktuTarget.setHours(parseInt(h), parseInt(m), 0);
-
-        // Jika waktu target sudah lewat dari jam sekarang (kasus lewat tengah malam), tambah 1 hari
-        if (waktuTarget < sekarang) {
-            waktuTarget.setDate(waktuTarget.getDate() + 1);
-        }
-
-        const selisih = waktuTarget - sekarang;
-        const sJam = Math.floor(selisih / (1000 * 60 * 60));
-        const sMenit = Math.floor((selisih % (1000 * 60 * 60)) / (1000 * 60));
-        const sDetik = Math.floor((selisih % (1000 * 60)) / 1000);
-
-        const el = document.getElementById('jkt-countdown-sholat');
-
-        // --- LOGIKA 1: PENGINGAT 10 MENIT SEBELUM ---
-if (sJam === 0 && sMenit === 10 && sDetik === 3) {
-    // CEK: Jangan bunyikan Belt kalau targetnya adalah Subuh 
-    // karena jam ini barengan sama waktu Imsak (Tarhim)
-    if (namaSholat !== 'Subuh') {
-        tampilkanNotif(`10 Menit Menuju ${namaSholat}`, `🕌 Persiapan yuk, 10 menit lagi waktu ${namaSholat}.`);
-    } else {
-        console.log("Notif 10 menit Subuh dilewati karena barengan Imsak/Tarhim.");
-    }
-}
-
-// --- LOGIKA 2: TEPAT WAKTU (IMSAK / ADZAN) ---
-    if (sJam === 0 && sMenit === 00 && sDetik === 5) {
-    if (namaSholat === 'Imsak') {
-        putarSirineImsak(); 
-    } else {
-        putarAdzan(namaSholat); 
-    }
-}
-
-        // TAMPILAN TIMER
-if (el) {
-    // Cek status izin buat nentuin warna lonceng
-    const sudahIzin = localStorage.getItem('izin_suara_adzan') === 'true';
-    const gayaLonceng = sudahIzin 
-        ? "filter: grayscale(0) drop-shadow(0 0 5px #d4af37); opacity: 1;" 
-        : "filter: grayscale(1); opacity: 0.5;";
-    
-    // Gabungkan lonceng ke dalam innerHTML
-    const iconLonceng = `<button class="menu-btn"><span id="status-lonceng" style="font-size: 18px; ${gayaLonceng} margin-right: 8px; transition: all 0.3s;" onclick="cekIzinUlang()">🔊</span></button>`;
-
-    if (sJam === 0 && sMenit < 6) {
-        el.innerHTML = `<div style="background:red; color:white; padding:10px; border-radius:10px; animation:blink 0.8s infinite; display:flex; align-items:center; justify-content:center;">
-            ${iconLonceng} ⚠️ ${sMenit}m ${sDetik}s LAGI ${namaSholat.toUpperCase()}!
-        </div>`;
-    } else {
-        el.innerHTML = `<div style="display:flex; align-items:center; justify-content:center;">
-            ${iconLonceng} ⏳ <b>${sJam}j ${sMenit}m ${sDetik}s </b> <i style="padding: 0 4px;"> lagi menuju </i> <b> ${namaSholat} </b>
-        </div>`;
-    }
-}
-    }, 1000);
-}
-
-     // Tambahkan di dalam script index.html biar muncul tanggal di Hero
-async function muatTanggalHeader() {
-    try {
-        const r = await fetch('https://api.aladhan.com/v1/gToH?date=' + new Date().getDate() + '-' + (new Date().getMonth() + 1) + '-' + new Date().getFullYear());
-        const res = await r.json();
-        const d = res.data.hijri;
-        document.getElementById('greeting').innerHTML = `Assalamu'alaikum<br><small>${d.day} ${d.month.en} ${d.year} H</small>`;
-    } catch (e) { }
-}
-
-    function cekAgendaHariIni() {
-    const mskr = new Date();
-    const jamSekarang = mskr.getHours();
-
-    // 1. FILTER JAM: Muncul mulai jam 18:00 (6 sore) sampai jam 05:00 pagi
-    // Jadi kalau jam 05:01, notif ini sudah tidak muncul lagi
-    if (!(jamSekarang >= 18 || jamSekarang < 5)) return;
-
-    // 2. TENTUKAN "TARGET HARI"
-    let targetDina; 
-    if (jamSekarang >= 18) {
-        // Jam 6 sore ke atas, ingatkan buat BESOK
-        targetDina = (mskr.getDay() + 1) % 7; 
-    } else {
-        // Jam 00:00 sampai 04:59 pagi, ingatkan buat HARI INI
-        targetDina = mskr.getDay(); 
-    }
-
-    // 3. AMBIL DATA KALENDER (Untuk Hijriyah)
-    const cacheKey = `kalender_${mskr.getMonth() + 1}_${mskr.getFullYear()}`;
-    const dataKalender = JSON.parse(localStorage.getItem(cacheKey));
-
-    if (dataKalender) {
-        // Cari data hijriyah (kalau jam > 18, cari tanggal masehi besok)
-       const tglCari = (jamSekarang >= 18) ? mskr.getDate() + 1 : mskr.getDate();
-        const infoHari = dataKalender.find(d => parseInt(d.gregorian.day) === tglCari);
-        
-        if (infoHari) {
-            let infoPuasa = "";
-            const tglH = parseInt(infoHari.hijri.day);
-
-            // CEK TARGET HARI (Senin=1, Kamis=4)
-            if (targetDina === 1) infoPuasa = "Besok Puasa Sunah Senin, jangan lupa sahur!";
-            else if (targetDina === 4) infoPuasa = "Besok Puasa Sunah Kamis, jangan lupa sahur!";
-            
-            // CEK TANGGAL HIJRIYAH (Ayyamul Bidh 13, 14, 15)
-            // Kalau besok tanggal 13, 14, atau 15, ingatkan!
-            if (tglH === 13 || tglH === 14 || tglH === 15) {
-                infoPuasa = `Besok Puasa Ayyamul Bidh Tanggal ${tglH} Hijriyah.`;
-            }
-
-            if (infoPuasa) {
-                tampilkanNotifFloating(infoPuasa);
-
-                // Suara Sapaan (Cukup 1x saja per sesi pengingat)
-                const keySapa = `sapa_pengingat_${tglCari}`;
-                if (localStorage.getItem(keySapa) !== 'true') {
-                    asistenNgomong("Assalamu'alaikum... " + infoPuasa);
-                    localStorage.setItem(keySapa, 'true');
-                }
-            }
-        }
-    }
-}
-// Tambahkan CSS Animasi ke Head
-const styleSlide = document.createElement('style');
-styleSlide.innerHTML = `
-    @keyframes slideUp {
-        from { bottom: -100px; opacity: 0; }
-        to { bottom: 20px; opacity: 1; }
-    }
-`;
-document.head.appendChild(styleSlide);
-
-     function tampilkanNotifFloating(pesan) {
-    // 1. Cek kalau elemen belum ada, buat dulu
-    let divNotif = document.getElementById('notif-agenda-floating');
-    
-    if (!divNotif) {
-        divNotif = document.createElement('div');
-        divNotif.id = "notif-agenda-floating";
-        document.body.appendChild(divNotif);
-    }
-
-    // 2. Isi kontennya
-    divNotif.innerHTML = `
-        <div style="font-size:24px;">🌙</div>
-        <div style="flex:1; text-align:left;">
-            <b style="color:#ffcb8e; display:block; font-size:14px; margin-bottom:2px;">Agenda Puasa</b>
-            <span style="font-size:13px; line-height:1.4; opacity:0.9;">${pesan}</span>
-        </div>
-        <button class="btn-tutup-agenda" onclick="tutupAgenda()">×</button>
-    `;
-
-    // 3. Tambahkan class muncul setelah jeda dikit biar animasinya main
-    setTimeout(() => {
-        divNotif.classList.add('muncul');
-    }, 100);
-}
-
-// Fungsi buat nutup
-function tutupAgenda() {
-    const el = document.getElementById('notif-agenda-floating');
-    if (el) {
-        el.classList.remove('muncul');
-        // Hapus dari DOM setelah animasi selesai biar gak nyampah
-        setTimeout(() => { el.remove(); }, 600);
-    }
-}
-
-    // 1. INI DAGINGNYA: Inisialisasi Audio cuma SEKALI
-    if (!window.suaraAsisten) {
-    window.suaraAsisten = new Audio();
-    window.suaraAsisten.preload = "auto";
-}
-
-// 2. TRIGGER SAKTI: Begitu user klik apa saja, segel suara terbuka
-document.addEventListener('click', function() {
-    // Putar suara kosong sebentar (Silent Play)
-    window.suaraAsisten.play().then(() => {
-        window.suaraAsisten.pause();
-        console.log("Audio Terbuka!");
-    }).catch(e => {});
-}, { once: true }); // Cukup sekali klik saja
-
-// --- FUNGSI NOTIF UMUM ---
-   function tampilkanNotif(judul, pesan) {
-    window.suaraAsisten.loop = false;
-    const notif = document.getElementById('notif-sholat');
-    if (!notif) return;
-
-    document.getElementById('judul-notif').innerText = judul;
-    document.getElementById('pesan-notif').innerText = pesan;
-
-    // 1. SET IDENTITAS AUDIO (Opsional, biar keren di lockscreen)
-    if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-            title: judul,
-            artist: 'Al-Qur\'an Pro',
-            artwork: [{ src: 'https://alquran-pro.pages.dev/img/alquran.png', sizes: '512x512', type: 'image/png' }]
-        });
-    }
-
-    // 2. EKSEKUSI SUARA
-    window.suaraAsisten.pause();
-    window.suaraAsisten.src = "https://alquran-pro.pages.dev/audio/belt.mp3";
-    window.suaraAsisten.load(); 
-    
-    notif.classList.add('tampil');
-
-    setTimeout(() => {
-        window.suaraAsisten.play().catch(e => console.log("Gagal bunyi!"));
-    }, 150);
-
-    setTimeout(() => { 
-        tutupNotif(); 
-    }, 30000); // 30 detik saja Bossku
-}
-
-// --- FUNGSI ADZAN ---
-   function putarAdzan(nama) {
-    window.suaraAsisten.loop = false;
-    const notif = document.getElementById('notif-sholat');
-    if (notif) {
-        document.getElementById('judul-notif').innerText = `Waktu ${nama} Tiba`;
-        document.getElementById('pesan-notif').innerText = `Allahu Akbar... Selamat menunaikan ibadah sholat ${nama}.`;
-        notif.classList.add('tampil');
-    }
-
-    // 1. SET IDENTITAS AUDIO (Biar muncul di Lock Screen kayak lagu)
-    if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-            title: `Adzan ${nama}`,
-            artist: 'Al-Qur\'an Pro',
-            album: 'Waktu Sholat',
-            artwork: [
-                { src: 'https://alquran-pro.pages.dev/img/alquran.png', sizes: '512x512', type: 'image/png' }
-            ]
-        });
-    }
-
-    // 2. EKSEKUSI SUARA
-    window.suaraAsisten.pause();
-    window.suaraAsisten.src = "https://alquran-pro.pages.dev/audio/adzan.mp3";
-    window.suaraAsisten.load();
-    
-    // Trik sakti: Paksa browser tetap bangun selama Adzan mutar
-    setTimeout(() => {
-        const playPromise = window.suaraAsisten.play();
-        if (playPromise !== undefined) {
-            playPromise.then(_ => {
-                console.log("Adzan berkumandang di latar belakang!");
-            }).catch(error => {
-                console.log("Gagal tembus lock screen: " + error);
-            });
-        }
-    }, 200);
-
-    setTimeout(() => { tutupNotif(); }, 240000);
-}
-
-// --- FUNGSI IMSAK ---
-   function putarSirineImsak() {
-    const notif = document.getElementById('notif-sholat');
-    if (notif) {
-        document.getElementById('judul-notif').innerText = `Waktu Imsak`;
-        document.getElementById('pesan-notif').innerText = `Sudah masuk waktu Imsak, ayo siap-siap berhenti sahur! Siap Jamaah Sholat Subuh!`;
-        notif.classList.add('tampil');
-    }
-
-    if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-            title: `Waktu Imsak (Tarhim)`,
-            artist: 'Al-Qur\'an Pro',
-            album: 'Persiapan Subuh',
-            artwork: [{ src: 'https://alquran-pro.pages.dev/img/alquran.png', sizes: '512x512', type: 'image/png' }]
-        });
-    }
-
-    // 2. EKSEKUSI SUARA TARHIM DENGAN LOOP
-    window.suaraAsisten.pause();
-    window.suaraAsisten.src = "https://alquran-pro.pages.dev/audio/imsak_tahrim.mp3";
-    window.suaraAsisten.loop = true; // <--- DAGINGNYA DI SINI Bossku! (Biar mutar terus)
-    window.suaraAsisten.load();
-    
-    setTimeout(() => {
-        window.suaraAsisten.play().catch(e => console.log("Imsak error: " + e));
-    }, 200);
-
-    // Biarkan notif nangkring terus sampai 10 menit (600.000 ms) 
-    // biar pas sama waktu Subuh datang.
-    setTimeout(() => { 
-        tutupNotif(); 
-    }, 600000); 
-}
  
-    function tutupNotif() {
-    const notif = document.getElementById('notif-sholat');
-    if (notif) notif.classList.remove('tampil');
-    
-    // Hentikan suara kalau notif ditutup manual atau otomatis
-    if (window.suaraAsisten) {
-        window.suaraAsisten.pause();
-        window.suaraAsisten.currentTime = 0;
-    }
-}
-  
-  // Fungsi Cek Izin saat halaman dibuka
-    function cekIzinUlang() {
-    const sudahIzin = localStorage.getItem('izin_suara_adzan') === 'true';
-    if (!sudahIzin) {
-        document.getElementById('modal-izin-suara').style.display = 'flex';
-    } else {
-        pesan("Selalu clik bagian ini untuk 🔊 suara Fitur Adzan aktif dan jangan tutup Halaman ini agar suara Alert, Tahrim, Adzan bisa berkumandang! (biarkan halaman ini aktif di latar belakang!)");
-    }
-}
+<script src="js/config-app.js"></script>
+<script src="js/adzan-pro.js"></script>
+<script src="js/agenda-puasa.js"></script>
 
+<script>
+    // Jalankan semua mesin pas halaman terbuka
+    window.addEventListener('pageshow', () => {
+        sinkronTema();
+        cekBookmark();
+        muatTanggalHeader();
+        
+        // Panggil mesin adzan & countdown
+        ambilJadwal(); 
+        
+        // Cek agenda puasa (kasih jeda biar gak berat)
+        setTimeout(cekAgendaHariIni, 3000);
+    });
 
-// Fungsi Eksekusi Izin (Buka Segel Audio)
-function izinkanSuara() {
-    if (window.suaraAsisten) {
-        window.suaraAsisten.src = "https://alquran-pro.pages.dev/audio/belt.mp3";
-        window.suaraAsisten.volume = 0.1;
-        window.suaraAsisten.play().then(() => {
-            window.suaraAsisten.pause();
-            window.suaraAsisten.volume = 1.0;
-            
-            localStorage.setItem('izin_suara_adzan', 'true');
-            
-            tutupModalIzin();
-            updateIkonLonceng(); // <--- Update warna lonceng setelah klik
-            
-            pesan("✅ Fitur Adzan Aktif!");
-        }).catch(e => {
-            pesan("Klik lagi Bossku untuk mengaktifkan!");
-        });
-    }
-}
-
-  function aktifkanBackgroundAudio() {
-    const silentAudio = new Audio("https://alquran-pro.pages.dev/audio/silent.ogg");
-    silentAudio.loop = true;
-    silentAudio.volume = 0.01; // Kecilkan sampai hampir tidak terdengar
-    silentAudio.play();
-}
-
-function tutupModalIzin() {
-    document.getElementById('modal-izin-suara').style.display = 'none';
-}
-
-  // --- FUNGSI UPDATE WARNA LONCENG ---
-function updateIkonLonceng() {
-    const lonceng = document.getElementById('status-lonceng');
-    const sudahIzin = localStorage.getItem('izin_suara_adzan') === 'true';
-
-    if (lonceng) {
-        if (sudahIzin) {
-            // Lonceng Emas Berkilau
-            lonceng.style.filter = "grayscale(0) drop-shadow(0 0 5px #d4af37)";
-            lonceng.style.opacity = "1";
-            lonceng.title = "Alarm Aktif";
-        } else {
-            // Lonceng Abu-abu (Mati)
-            lonceng.style.filter = "grayscale(1)";
-            lonceng.style.opacity = "0.5";
-            lonceng.title = "Klik untuk Aktifkan Alarm";
+    // Animasi geser yang Bossku mau
+    document.addEventListener("DOMContentLoaded", function() {
+        const app = document.getElementById('app-container');
+        if(app) {
+            app.style.transform = "translateX(350px)";
+            setTimeout(() => { app.style.transform = "translateX(0)"; }, 300);
         }
-    }
-}
-
-  window.addEventListener('load', () => {
-    cekIzinSuara();
-    updateIkonLonceng(); // Cek status saat aplikasi baru dibuka
-});
-  window.addEventListener('pageshow', () => {
-    sinkronTema();
-    cekBookmark();
-    ambilJadwal();
-    muatTanggalHeader();
-    muatJadwal(); 
-    mulaiCountdown();
-
-    setTimeout(() => {
-        cekAgendaHariIni(); 
-    }, 5000); 
-});
-  </script>
+    });
+</script>
+<script>
+    // Jalankan inisialisasi tema & bookmark yang ringan-ringan tetap di sini boleh
+    window.addEventListener('pageshow', () => {
+        if(typeof sinkronTema === "function") sinkronTema();
+        if(typeof cekBookmark === "function") cekBookmark();
+        
+        // Jalankan mesin yang sudah di-import
+        ambilJadwal();
+        setTimeout(() => {
+            cekAgendaHariIni();
+        }, 3000);
+    });
+</script>
     
-   <script> document.addEventListener("DOMContentLoaded", function() {
-  const app = document.getElementById('app-container');
-  if(app) {
-      app.style.transform = "translateX(350px)";
-      setTimeout(function() {
-        app.style.transform = "translateX(0)";
-      }, 300);
-  }
-});
-
+   <script> 
   function pesan(teks) {
     document.getElementById('isi-alert').innerText = teks;
     document.getElementById('custom-alert').style.display = 'block';
